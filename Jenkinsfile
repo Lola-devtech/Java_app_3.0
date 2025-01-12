@@ -10,7 +10,7 @@ pipeline{
         choice(name: 'action', choices: 'create\ndelete', description: 'Choose create/Destroy')
         string(name: 'ImageName', description: "name of the docker build", defaultValue: 'javapp')
         string(name: 'ImageTag', description: "tag of the docker build", defaultValue: 'v1')
-        string(name: 'DockerHubUser', description: "name of the Application", defaultValue: 'praveensingam1994')
+        string(name: 'DockerHubUser', description: "name of the Application", defaultValue: 'loladevtech')
     }
 
     stages{
@@ -71,6 +71,38 @@ pipeline{
                    
                    mvnBuild()
                }
+            }
+        }
+        stage('Build and Add Artifact to the Repo: JFrog') {
+           steps {
+               script {
+                       // Artifactory configuration
+                       def artifactoryUrl = 'http://172.17.0.5:8082/artifactory'
+                       def repoName = 'example-repo-local'
+                       def targetPath = 'kubernetes-configmap-reload-0.0.1-SNAPSHOT.jar'
+                       def localArtifactPath = '/var/lib/jenkins/.m2/repository/com/minikube/sample/kubernetes-configmap-reload/0.0.1-SNAPSHOT/kubernetes-configmap-reload-0.0.1-SNAPSHOT.jar'
+                       def apiKeyOrUsername = 'admin'
+                       def apiKeyOrPassword = 'Password123'
+
+                      // Extract the filename from the localArtifactPath
+                       def fileName = localArtifactPath.split('/').last()
+
+                     // Construct the full URL to upload the artifact
+                       def uploadUrl = "${artifactoryUrl}/${repoName}/${targetPath}"
+
+                    // Upload the artifact using curl
+                       def uploadCommand = """
+                       curl -X PUT -u ${apiKeyOrUsername}:${apiKeyOrPassword} -T ${localArtifactPath} ${uploadUrl} """
+
+                    // Execute the upload command and check result
+                       def uploadResult = sh(script: uploadCommand, returnStatus: true)
+
+                       if (uploadResult == 0) {
+                          echo "Artifact successfully uploaded to Artifactory."
+                     } else {
+                          error "Failed to upload artifact to Artifactory. Exit code: ${uploadResult}"
+                     }
+                }
             }
         }
         stage('Docker Image Build'){
